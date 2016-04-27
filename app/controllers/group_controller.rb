@@ -3,7 +3,9 @@ require 'json'
 class GroupController < ApplicationController
 
     def create()
-        render :json => {group: 1, size: params["size"]}
+    	group = Group.create(params[:size])
+    	group.save!
+        render :json => group.to_json
     end
 
 end
