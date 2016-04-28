@@ -7,8 +7,9 @@ class ApplicationController < ActionController::Base
         begin
             yield
         rescue => e
-            puts e
             render_error(e)
+            puts e.to_s
+            puts e.backtrace.join("\n")
         end
     end
 

@@ -37,6 +37,15 @@ class Player
 		}
 	end
 
+	def character_view(viewing_character)
+		{
+			name: name,
+			photo: photo,
+			character: Character::VIEW_MAP[viewing_character][character],
+			is_ready: is_ready
+		}
+	end
+
 	########################### Static Members #######################
 
 	def self.from_json(json)

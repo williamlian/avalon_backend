@@ -7,19 +7,25 @@ Rails.application.routes.draw do
 
   # post {size: int}
   # response: {group: Group, player: Player}
-  post '/new_group' => 'group#create'
+  post '/group' => 'group#create'
 
-  # post {player_id: int, group_id: int, candidates: Character[]}
+  # post {player_id: int, characters: Character[]}
   # response: {}
-  post '/update_candidate' => 'group#update_candidate'
+  post '/group/:group_id/characters' => 'group#update_characters'
 
   # response: {group: Group, player: Player(self rendered)}
   post '/group/:group_id/join' => 'group#join'
 
-  # post {group_id: uuid, name:string, photo: base64 string}
+  # post {player_id: uuid, name:string, photo: base64 string}
   # response {player: Player (self rendered)}
-  post '/player/:player_id/ready' => 'group#ready'
+  post '/group/:group_id/ready' => 'group#ready'
 
+  # ?player_id=uuid
+  # response {group: Group (character masked by player)}
+  get '/group/:group_id/player_view' => 'group#player_view'
+
+
+  # DEBUG ONLY
   get '/group/:group_id' => 'group#show'
 
 

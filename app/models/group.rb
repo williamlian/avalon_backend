@@ -16,7 +16,7 @@ class Group
     GROUP_STATE_STARTED = 'started'
 
     def initialize
-        self.id = UUIDTools::UUID.random_create.to_s
+        self.id = 100000 + rand(900000)
         self.player_count = 0
         self.size = 0
         self.state = GROUP_STATE_CREATED
@@ -94,6 +94,10 @@ class Group
         return !self.players[player_id].nil?
     end
 
+    def is_all_ready?
+        players.map {|k,p| p.is_ready ? 1 : 0}.sum == self.size
+    end
+
     def render
         {
             id: id,
@@ -104,27 +108,91 @@ class Group
         }
     end
 
+    def player_view(player)
+        {
+            id: id,
+            player_count: player_count,
+            size: size,
+            state: state,
+            players: players.map {|id,p| p.character_view(player.character)}
+        }
+    end
+
+    def save!
+        @file.rewind
+        @file.truncate(0)
+        @file.write(self.to_json.to_s)
+        @file.flush
+    end
 
     ########################### Static Members #######################
     # returns group uuid 
     def self.create(size)
         group = Group.new
-        group.size = size
-        group.character_pool = Character.candidate_pool
+        Group.with_update_lock(group.id) do |file|
+            group.size = size
+            group.set_file(file)
+            group.character_pool = Character.candidate_pool
+            group.save!
+            group.set_file(nil)
+        end
         group
     end
 
     # nil means file not found
-    def self.load(uuid)
-        file_path = GROUP_FILE_PATH + uuid
+    def self.load_for_update(id)
         begin
-            File.open(file_path, "r") {|f|
-                f.flock(File::LOCK_SH)
-                data = f.read
-                return Group.from_json(JSON.parse(data))
-            }
-        rescue Exception => e
+            with_update_lock(id) do |file|
+                data = file.read
+                group = Group.from_json(JSON.parse(data))
+                group.set_file(file)
+                yield group
+                group.set_file(nil)
+            end
+        rescue Errno::ENOENT => e
             raise 'group not found: ' + e.to_s
+        rescue Exception => e
+            raise e
+        end
+    end
+
+    def self.load_for_read(id)
+        begin
+            with_read_lock(id) do |file|
+                data = file.read
+                yield Group.from_json(JSON.parse(data))
+            end
+        rescue Errno::ENOENT => e
+            raise 'group not found: ' + e.to_s
+        rescue Exception => e
+            raise e
+        end
+    end
+
+    def self.with_read_lock(id)
+        File.open(Group::GROUP_FILE_PATH + id.to_s, "r") do |f|
+            f.flock(File::LOCK_SH)
+            begin
+                yield f
+            rescue => e
+                f.flock(File::LOCK_UN)
+                raise e
+            end
+        end
+    end
+
+    def self.with_update_lock(id)
+        # make sure the dir is there
+        FileUtils.mkdir_p(Group::GROUP_FILE_PATH)
+        # Obtain exclusive lock to prevent write correction
+        File.open(Group::GROUP_FILE_PATH + id.to_s, File::RDWR|File::CREAT, 0644) do |f|
+            f.flock(File::LOCK_EX)
+            begin
+                yield f
+            rescue => e
+                f.flock(File::LOCK_UN)
+                raise e
+            end
         end
     end
 
@@ -145,22 +213,8 @@ class Group
         group
     end
 
-    ############################## Members ###########################
-    def file_path
-        Group::GROUP_FILE_PATH + @id
+    ############################## Privates ###########################
+    def set_file(file)
+        @file = file
     end
-
-    def save!
-        # make sure the dir is there
-        FileUtils.mkdir_p(Group::GROUP_FILE_PATH)
-        # Obtain exclusive lock to prevent write correction
-        File.open(self.file_path, File::RDWR|File::CREAT, 0644) {|f|
-            f.flock(File::LOCK_EX)
-            f.truncate(0)
-            f.write(self.to_json.to_s)
-            f.flush
-        }
-        puts "group saved to " + self.file_path
-    end
-
 end
