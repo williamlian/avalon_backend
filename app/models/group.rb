@@ -132,7 +132,6 @@ class Group
         Group.with_update_lock(group.id) do |file|
             group.size = size
             group.set_file(file)
-            group.character_pool = Character.candidate_pool
             group.save!
             group.set_file(nil)
         end
