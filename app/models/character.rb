@@ -13,7 +13,7 @@ class Character
     EVIL                = 'evil'
     UNKNOWN             = 'unknown'
 
-    def self.get_characters
+    def self.candidate_pool
         [
             MERLIN,
             PERCIVAL,
@@ -28,8 +28,17 @@ class Character
             OBERON,
             MINION,
             MINION,
-            MINION
+            MINION,
             MINION
         ]
+    end
+
+    def self.validate(character)
+        character.in? candidate_pool
+    end
+
+    def self.validate_list(characters)
+        characters.each {|c| return false if !validate(c)}
+        true
     end
 end
