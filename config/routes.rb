@@ -27,7 +27,7 @@ Rails.application.routes.draw do
   get '/characters' => 'character#index'
 
   # DEBUG ONLY
-  get '/group/:group_id' => 'group#show'
+  get '/admin/group/:group_id' => 'group#show'
 
 
   # Example of named route that can be invoked with purchase_url(id: product.id)
