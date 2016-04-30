@@ -25,6 +25,7 @@ class GroupController < ApplicationController
             Group.load_for_update(group_id) do |group|
                 group.update_character_pool(player_id, candidates)
                 group.save!
+                player = group.players[player_id]
                 render_success({group: group.render, player: player.render_self})
             end
         end
