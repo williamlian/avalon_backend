@@ -25,7 +25,7 @@ class GroupController < ApplicationController
             Group.load_for_update(group_id) do |group|
                 group.update_character_pool(player_id, candidates)
                 group.save!
-                render_success({})
+                render_success({group: group.render, player: player.render_self})
             end
         end
     end
@@ -36,7 +36,7 @@ class GroupController < ApplicationController
             Group.load_for_update(group_id) do |group|
                 player = group.join_as_player
                 group.save!
-                render_success({player: player.render_self})
+                render_success({group: group.render, player: player.render_self})
             end
         end
     end
@@ -63,7 +63,7 @@ class GroupController < ApplicationController
                     group.state = Group::GROUP_STATE_STARTED
                 end
                 group.save!
-                render_success({player: player})
+                render_success({group: group.render, player: player.render_self})
             end
         end
     end
@@ -83,7 +83,7 @@ class GroupController < ApplicationController
                 if group.state == Group::GROUP_STATE_CREATED
                     raise 'group is not open yet'
                 end
-                render_success({group: group.player_view(player)})
+                render_success({group: group.player_view(player), player: player.render_self})
             end
         end
     end

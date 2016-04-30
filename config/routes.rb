@@ -21,7 +21,7 @@ Rails.application.routes.draw do
   post '/group/:group_id/ready' => 'group#ready'
 
   # ?player_id=uuid
-  # response {group: Group (character masked by player)}
+  # response {group: Group (character masked by player), player: Player}
   get '/group/:group_id/player_view' => 'group#player_view'
 
   get '/characters' => 'character#index'
