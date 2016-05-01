@@ -37,7 +37,7 @@ class Character
         ROYAL_SERVANT => {
             MERLIN          => UNKNOWN,
             PERCIVAL        => UNKNOWN,
-            ROYAL_SERVANT   => ROYAL_SERVANT,
+            ROYAL_SERVANT   => UNKNOWN,
             ASSASSIN        => UNKNOWN,
             MORGANA         => UNKNOWN,
             MORDRED         => UNKNOWN,
@@ -92,7 +92,7 @@ class Character
             MORGANA         => EVIL,
             MORDRED         => EVIL,
             OBERON          => UNKNOWN,
-            MINION          => MINION
+            MINION          => EVIL
         }
     }
 

@@ -4,8 +4,7 @@ class GroupController < ApplicationController
 
     def create
         run_with_rescue do
-            group = Group.create(params[:size])
-            Group.load_for_update(group.id) do |group|
+            Group.create(params[:size]) do |group|
                 player = group.join_as_owner
                 group.save!
                 render_success({group: group.render, player: player.render_self})
@@ -56,12 +55,11 @@ class GroupController < ApplicationController
                 if player.is_ready
                     raise 'player is ready'
                 end
-                player.name = name
-                player.photo = photo
                 group.assign_character(player)
-                player.is_ready = true
+                player.ready(name, photo)
                 if group.is_all_ready?
-                    group.state = Group::GROUP_STATE_STARTED
+                    group.status = Group::GROUP_STATE_STARTED
+                    group.choose_king
                 end
                 group.save!
                 render_success({group: group.render, player: player.render_self})
@@ -81,7 +79,7 @@ class GroupController < ApplicationController
                 if !player.is_ready
                     raise 'player is not ready'
                 end
-                if group.state == Group::GROUP_STATE_CREATED
+                if group.status == Group::GROUP_STATE_CREATED
                     raise 'group is not open yet'
                 end
                 render_success({group: group.player_view(player), player: player.render_self})

@@ -24,7 +24,14 @@ Rails.application.routes.draw do
   # response {group: Group (character masked by player), player: Player}
   get '/group/:group_id/player_view' => 'group#player_view'
 
+  # character list
+  # response {characters: Character[]}
   get '/characters' => 'character#index'
+
+  get '/status' => 'player#status'
+
+  delete '/player/:player_id' => 'player#delete'
+
 
   # DEBUG ONLY
   get '/admin/group/:group_id' => 'group#show'

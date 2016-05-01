@@ -5,9 +5,10 @@
 #   gem 'sqlite3'
 #
 default: &default
-  adapter: nulldb
+  adapter: 'sqlite3'
   pool: 5
   timeout: 5000
+  database: 'db.sql'
 
 development:
   <<: *default
