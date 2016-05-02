@@ -98,7 +98,9 @@ class Player
 
     def self.remove_player(player_id)
     	with_update_lock(PLAYER_FILE) do |file|
-            player_map = JSON.parse(file.read)
+            data = file.read
+        	data = '{}' if data.empty?
+            player_map = JSON.parse(data)
             player_map.delete(player_id)
             file.rewind
 	        file.truncate(0)
