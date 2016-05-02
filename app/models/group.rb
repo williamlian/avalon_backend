@@ -8,13 +8,17 @@ class Group
         :status, 
         :players, 
         :character_pool,
-        :owner
+        :owner,
+        :last_vote_result,
+        :quest_result
 
     GROUP_FILE_PATH = '/var/tmp/avalon/groups/'
 
     GROUP_STATE_CREATED = 'created'
     GROUP_STATE_OPEN    = 'open'
     GROUP_STATE_STARTED = 'started'
+    GROUP_STATE_VOTING  = 'voting'
+    GROUP_STATE_QUEST   = 'quest'
 
     def initialize
         self.id = 100000 + rand(900000)
@@ -24,6 +28,8 @@ class Group
         self.players = {}
         self.character_pool = []
         self.owner = nil
+        self.last_vote_result = nil
+        self.quest_result = {success: 0, failed: 0}
     end
 
     # returns a  Player
@@ -52,6 +58,13 @@ class Group
             raise 'user id ' + player.id + ' exists'
         end
         self.players[player.id] = player
+        sequence_ids = self.players.values.map{|p| p.player_sequence}
+        (0...self.size).each do |i|
+            if !i.in?(sequence_ids)
+                player.player_sequence = i
+                break
+            end
+        end
         self.player_count += 1
         player.group_id = self.id
         Player.add_player(player)
@@ -78,31 +91,21 @@ class Group
     end
 
     def choose_king
-        if self.status != Group::GROUP_STATE_STARTED
-            raise 'game is not started yet'
-        end
         iKing = rand(self.player_count)
         king = self.players.values[iKing]
         king.is_king = true
     end
 
     def next_king
-        if self.status != Group::GROUP_STATE_STARTED
-            raise 'game is not started yet'
-        end
-        king = self.players.select{|p| p.is_king}[0]
+        king = self.players.values.select{|p| p.is_king}[0]
         if king.nil?
             raise 'no king found'
         end
         king.is_king = false
-        iKing = self.players.index(king)
+        iKing = self.players.values.index(king)
         iKing = (iKing + 1) % self.size
-        self.players[iKing].is_king = true
+        self.players.values[iKing].is_king = true
     end
-
-    def start_vote(player)
-    end
-
 
     # update the candidate pool
     # - only owner can call
@@ -140,7 +143,9 @@ class Group
             player_count: player_count,
             size: size,
             status: status,
-            players: players.map {|id,p| p.render}
+            players: players.map {|id,p| p.render},
+            last_vote_result: last_vote_result,
+            quest_result: quest_result,
         }
     end
 
@@ -150,8 +155,81 @@ class Group
             player_count: player_count,
             size: size,
             status: status,
-            players: players.map {|id,p| p.character_view(player.character)}
+            players: players.map {|id,p| p.character_view(player.character)},
+            last_vote_result: last_vote_result,
+            quest_result: quest_result,
         }
+    end
+
+    def start_vote(player_sequences)
+        knights = self.players.values.select{|p| p.player_sequence.in?(player_sequences)}
+        puts "knights selected: " + knights.map{|k|k.name}.join(",")
+        knights.each {|k| k.is_knight = true}
+        self.status = Group::GROUP_STATE_VOTING
+    end
+
+    def check_vote
+        voted = self.players.values.reject{|p| p.last_vote.nil?}
+        if voted.length < self.player_count
+            puts "waiting for vote #{voted.length}/#{self.player_count}"
+            self.last_vote_result = nil
+        else
+            accepted = voted.select{|v|v.last_vote}
+            rejected = voted.reject{|v|v.last_vote}
+            if accepted.length > rejected.length
+                puts "vote passed #{accepted.length}/#{rejected.length}"
+                self.last_vote_result = true
+            else
+                puts "vote rejected #{accepted.length}/#{rejected.length}"
+                self.last_vote_result = false
+            end
+        end
+    end
+
+    def start_quest
+        # clear voting state
+        self.players.values.each{|p|p.last_vote = nil}
+        self.last_vote_result = nil
+        # set group state to quest
+        self.quest_result[:success] = 0
+        self.quest_result[:failed] = 0
+        self.players.values.each do |player|
+            if player.is_knight
+                player.status = Player::PLAYER_STATE_QUEST
+            end
+        end
+        self.status = GROUP_STATE_QUEST
+    end
+
+    def end_turn
+        # clear voting state
+        self.players.values.each{|p|p.last_vote = nil}
+        self.last_vote_result = nil
+        # clear knight candidates
+        self.players.values.each{|p|p.is_knight = false}
+        # move king
+        self.next_king
+        # move back to play mode
+        self.status = GROUP_STATE_STARTED
+    end
+
+    def check_quest
+        knights = self.players.values.select{|p| p.is_knight}
+        voted_knights = knights.reject{|k| k.last_quest_result.nil?}
+        if voted_knights.length < knights.length
+            puts "waiting for quest result #{voted_knights.length}/#{knights.length}"
+        else
+            success = voted_knights.select{|v|v.last_quest_result}
+            failed = voted_knights.reject{|v|v.last_quest_result}
+            self.quest_result[:success] = success.length
+            self.quest_result[:failed] = failed.length
+            puts "check quest: #{success.length} / #{failed.length}"
+            self.players.values.each do |p| 
+                p.last_quest_result = nil
+                p.status = Player::PLAYER_STATE_READY
+            end
+            self.end_turn
+        end
     end
 
     def save!
@@ -184,18 +262,15 @@ class Group
 
     # nil means file not found
     def self.load_for_update(id)
-        begin
-            with_update_lock(file_from_id(id)) do |file|
-                data = file.read
-                group = Group.from_json(JSON.parse(data))
-                group.set_file(file)
-                yield group
-                group.set_file(nil)
+        with_update_lock(file_from_id(id)) do |file|
+            data = file.read
+            if data.empty?
+                raise 'group not found'
             end
-        rescue Errno::ENOENT => e
-            raise 'group not found: ' + e.to_s
-        rescue Exception => e
-            raise e
+            group = Group.from_json(JSON.parse(data))
+            group.set_file(file)
+            yield group
+            group.set_file(nil)
         end
     end
 
@@ -226,6 +301,8 @@ class Group
         end
         group.character_pool = json["character_pool"]
         group.owner = json["owner"]
+        group.last_vote_result = json["last_vote_result"]
+        group.quest_result = json["quest_result"]
         group
     end
 

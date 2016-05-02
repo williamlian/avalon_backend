@@ -28,13 +28,33 @@ Rails.application.routes.draw do
   # response {characters: Character[]}
   get '/characters' => 'character#index'
 
+  # periodical ping
   get '/status' => 'player#status'
 
+  # player quit
   delete '/player/:player_id' => 'player#delete'
 
+  # king start a vote
+  post '/group/:group_id/start_vote' => 'group#start_vote'
+
+  # post {player_id: uuid, vote: bool}
+  # response {}
+  post '/group/:group_id/vote' => 'group#vote'
+
+  # start the quest with selected knights
+  # post {player_id: uuid}
+  post '/group/:group_id/start_quest' => 'group#start_quest'
+
+  # end the current king's turn and move king to next
+  # post {player_id: uuid}
+  post '/group/:group_id/end_turn' => 'group#end_turn'
+
+  # post {player_id: uuid, quest_result: bool}
+  post '/group/:group_id/submit_quest' => 'group#submit_quest'
 
   # DEBUG ONLY
   get '/admin/group/:group_id' => 'group#show'
+  get '/admin/test_group' => 'group#create_test_group'
 
 
   # Example of named route that can be invoked with purchase_url(id: product.id)
