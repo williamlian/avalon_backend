@@ -111,7 +111,9 @@ class Player
     	group_id = nil
         begin
             with_read_lock(PLAYER_FILE) do |file|
-                player_map = JSON.parse(file.read)
+            	data = file.read
+            	data = '{}' if data.empty?
+                player_map = JSON.parse(data)
                 group_id = player_map[player_id]
             end
         rescue Errno::ENOENT => e
