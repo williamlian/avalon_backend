@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
 
-  namespace :api do
+  scope '/api' do
     # post {size: int}
     # response: {group: Group, player: Player}
     post '/group' => 'group#create'
