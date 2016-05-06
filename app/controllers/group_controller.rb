@@ -200,6 +200,14 @@ class GroupController < ApplicationController
         end
     end
 
+    def checkpoint
+        group_id = params[:group_id]
+        run_with_rescue do
+            ts = Group.get_timestamp(group_id)
+            render_success({last_updated_on: ts})
+        end
+    end
+
     # admin function
     def show
         group_id = params[:group_id]

@@ -123,44 +123,6 @@ class Group
         self.status = Group::GROUP_STATE_OPEN
     end
 
-    def is_owner?(player_id)
-        return self.owner == player_id
-    end
-
-    def has_player?(player_id)
-        return !self.players[player_id].nil?
-    end
-
-    def is_all_ready?
-        ready = self.players.values.select{|p| p.is_ready}.length
-        puts "ready players: #{ready} / #{self.size}"
-        return ready == self.size
-    end
-
-    def render
-        {
-            id: id,
-            player_count: player_count,
-            size: size,
-            status: status,
-            players: players.map {|id,p| p.render},
-            last_vote_result: last_vote_result,
-            quest_result: quest_result,
-        }
-    end
-
-    def player_view(player)
-        {
-            id: id,
-            player_count: player_count,
-            size: size,
-            status: status,
-            players: players.map {|id,p| p.character_view(player.character)},
-            last_vote_result: last_vote_result,
-            quest_result: quest_result,
-        }
-    end
-
     def start_vote(player_sequences)
         knights = self.players.values.select{|p| p.player_sequence.in?(player_sequences)}
         puts "knights selected: " + knights.map{|k|k.name}.join(",")
@@ -232,6 +194,44 @@ class Group
         end
     end
 
+    def is_owner?(player_id)
+        return self.owner == player_id
+    end
+
+    def has_player?(player_id)
+        return !self.players[player_id].nil?
+    end
+
+    def is_all_ready?
+        ready = self.players.values.select{|p| p.is_ready}.length
+        puts "ready players: #{ready} / #{self.size}"
+        return ready == self.size
+    end
+
+    def render
+        {
+            id: id,
+            player_count: player_count,
+            size: size,
+            status: status,
+            players: players.map {|id,p| p.render},
+            last_vote_result: last_vote_result,
+            quest_result: quest_result,
+        }
+    end
+
+    def player_view(player)
+        {
+            id: id,
+            player_count: player_count,
+            size: size,
+            status: status,
+            players: players.map {|id,p| p.character_view(player.character)},
+            last_vote_result: last_vote_result,
+            quest_result: quest_result,
+        }
+    end
+
     def save!
         if @file.nil?
             raise 'cannot save, please obtain an exclusive lock first'
@@ -258,6 +258,13 @@ class Group
     def self.remove(group_id)
         file = file_from_id(group_id)
         File.unlink(file)
+    end
+
+    def self.get_timestamp(group_id)
+        file = file_from_id(group_id)
+        mtime = File.mtime(file)
+        puts "group file #{file} updated on #{mtime}"
+        (mtime.to_f * 1000).to_i
     end
 
     # nil means file not found

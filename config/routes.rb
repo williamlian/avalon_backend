@@ -48,9 +48,10 @@ Rails.application.routes.draw do
     # post {player_id: uuid, quest_result: bool}
     post '/group/:group_id/submit_quest' => 'group#submit_quest'
 
+	get '/group/:group_id/checkpoint' => 'group#checkpoint'
+
     # DEBUG ONLY
     get '/admin/group/:group_id' => 'group#show'
     get '/admin/test_group' => 'group#create_test_group'
-  end
-
+  end  
 end
