@@ -1,57 +1,66 @@
 Rails.application.routes.draw do
 
-  scope '/api' do
-    # post {size: int}
-    # response: {group: Group, player: Player}
-    post '/group' => 'group#create'
+    scope '/api' do
+        ############################################################
+        # Game Setup APIs
+        ############################################################
+        # post {size: int}
+        # response: {group: Group, player: Player}
+        post '/group' => 'group#create'
 
-    # post {player_id: int, characters: Character[]}
-    # response: {}
-    post '/group/:group_id/characters' => 'group#update_characters'
+        # post {player_id: int, characters: Character[]}
+        # response: {}
+        post '/group/:group_id/characters' => 'group#update_characters'
 
-    # response: {group: Group, player: Player(self rendered)}
-    post '/group/:group_id/join' => 'group#join'
+        # response: {group: Group, player: Player(self rendered)}
+        post '/group/:group_id/join' => 'group#join'
 
-    # post {player_id: uuid, name:string, photo: base64 string}
-    # response {player: Player (self rendered)}
-    post '/group/:group_id/ready' => 'group#ready'
+        # post {player_id: uuid, name:string, photo: base64 string}
+        # response {player: Player (self rendered)}
+        post '/ready' => 'group#ready'
+        
+        # character list
+        # response {characters: Character[]}
+        get '/characters' => 'character#index'
 
-    # ?player_id=uuid
-    # response {group: Group (character masked by player), player: Player}
-    get '/group/:group_id/player_view' => 'group#player_view'
+        ############################################################
+        # Player Status Calls
+        ############################################################
+        # ?player_id=uuid
+        # response {group: Group (character masked by player), player: Player}
+        get '/player_view' => 'group#player_view'
 
-    # character list
-    # response {characters: Character[]}
-    get '/characters' => 'character#index'
+        ############################################################
+        # Game Actions
+        ############################################################
 
-    # periodical ping
-    get '/status' => 'player#status'
+        # king start a vote
+        # post {player_id: uuid, knights: [player sequences]}
+        post '/start_vote' => 'group#start_vote'
 
-    # player quit
-    delete '/player/:player_id' => 'player#delete'
+        # post {player_id: uuid, vote: bool}
+        # response {}
+        post '/vote' => 'group#vote'
 
-    # king start a vote
-    post '/group/:group_id/start_vote' => 'group#start_vote'
+        # start the quest with selected knights, only king can start with a successful vote
+        # post {player_id: uuid}
+        post '/start_quest' => 'group#start_quest'
 
-    # post {player_id: uuid, vote: bool}
-    # response {}
-    post '/group/:group_id/vote' => 'group#vote'
+        # end the current king's turn and move king to next, only king can call with a rejected vote
+        # post {player_id: uuid}
+        post '/end_turn' => 'group#end_turn'
 
-    # start the quest with selected knights
-    # post {player_id: uuid}
-    post '/group/:group_id/start_quest' => 'group#start_quest'
+        # post {player_id: uuid, quest_result: bool}
+        post '/submit_quest' => 'group#submit_quest'
+        
+        ############################################################
+        # Misc
+        ############################################################
+        # player quit
+        #delete '/player/:player_id' => 'player#delete'
 
-    # end the current king's turn and move king to next
-    # post {player_id: uuid}
-    post '/group/:group_id/end_turn' => 'group#end_turn'
-
-    # post {player_id: uuid, quest_result: bool}
-    post '/group/:group_id/submit_quest' => 'group#submit_quest'
-
-	get '/group/:group_id/checkpoint' => 'group#checkpoint'
-
-    # DEBUG ONLY
-    get '/admin/group/:group_id' => 'group#show'
-    get '/admin/test_group' => 'group#create_test_group'
-  end  
+        # DEBUG ONLY
+        get '/admin/group/:group_id' => 'group#show'
+        get '/admin/test_group' => 'group#create_test_group'
+    end  
 end

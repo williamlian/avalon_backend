@@ -1,7 +1,6 @@
 require 'uuidtools'
 
 class Player
-	extend FileLock
 	attr_accessor :id,
 		:player_sequence,
 		:group_id,
@@ -15,8 +14,6 @@ class Player
 		:last_vote,
 		:last_quest_result,
 		:status
-
-	PLAYER_FILE = '/var/tmp/avalon/players'
 
 	PLAYER_STATE_CREATED = 'created'
 	PLAYER_STATE_READY = 'ready'
@@ -80,51 +77,6 @@ class Player
 	end
 
 	########################### Static Members #######################
-
-	# methods for player map
-    def self.add_player(player)
-        with_update_lock(PLAYER_FILE) do |file|
-        	puts "saving player " + player.id
-        	data = file.read
-        	data = '{}' if data.empty?
-            player_map = JSON.parse(data)
-            player_map[player.id] = player.group_id
-            file.rewind
-	        file.truncate(0)
-	        file.write(player_map.to_json.to_s)
-	        file.flush
-        end
-    end
-
-    def self.remove_player(player_id)
-    	with_update_lock(PLAYER_FILE) do |file|
-            data = file.read
-        	data = '{}' if data.empty?
-            player_map = JSON.parse(data)
-            player_map.delete(player_id)
-            file.rewind
-	        file.truncate(0)
-	        file.write(player_map.to_json.to_s)
-	        file.flush
-	    end
-	end
-
-    def self.find_group_id_by_player_id(player_id)
-    	group_id = nil
-        begin
-            with_read_lock(PLAYER_FILE) do |file|
-            	data = file.read
-            	data = '{}' if data.empty?
-                player_map = JSON.parse(data)
-                group_id = player_map[player_id]
-            end
-        rescue Errno::ENOENT => e
-            group_id = nil
-        rescue Exception => e
-            raise e
-        end
-        group_id
-    end
 
 	def self.from_json(json)
 		player = Player.new

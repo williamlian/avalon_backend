@@ -1,7 +1,7 @@
 require 'uuidtools'
+require 'json'
 
 class Group
-    extend FileLock
     attr_accessor :id, 
         :player_count, 
         :size, 
@@ -67,13 +67,7 @@ class Group
         end
         self.player_count += 1
         player.group_id = self.id
-        Player.add_player(player)
         player
-    end
-
-    def remove_player(player)
-        removed = self.players.delete(player.id)
-        self.player_count = self.players.keys.length
     end
 
     # given a player assign a character for the player and update group
@@ -232,66 +226,24 @@ class Group
         }
     end
 
-    def save!
-        if @file.nil?
-            raise 'cannot save, please obtain an exclusive lock first'
+    def save!(redis)
+        if redis.nil?
+            raise 'cannot save, redis not ready'
         end
-        @file.rewind
-        @file.truncate(0)
-        @file.write(self.to_json.to_s)
-        @file.flush
+        redis.set(self.redis_key, self.to_json.to_s)
+    end
+    
+    def redis_key
+        return "group.#{self.id}"
     end
 
     ########################### Static Members #######################
-    # returns group uuid 
-    def self.create(size)
-        group = Group.new
-        with_update_lock(file_from_id(group.id)) do |file|
-            group.size = size
-            group.set_file(file)
-            yield group
-            group.set_file(nil)
+    def self.load(group_id, redis)
+        json = redis.get("group.#{group_id}")
+        if json.nil?
+            raise 'Group not found'
         end
-        group
-    end
-
-    def self.remove(group_id)
-        file = file_from_id(group_id)
-        File.unlink(file)
-    end
-
-    def self.get_timestamp(group_id)
-        file = file_from_id(group_id)
-        mtime = File.mtime(file)
-        puts "group file #{file} updated on #{mtime}"
-        (mtime.to_f * 1000).to_i
-    end
-
-    # nil means file not found
-    def self.load_for_update(id)
-        with_update_lock(file_from_id(id)) do |file|
-            data = file.read
-            if data.empty?
-                raise 'group not found'
-            end
-            group = Group.from_json(JSON.parse(data))
-            group.set_file(file)
-            yield group
-            group.set_file(nil)
-        end
-    end
-
-    def self.load_for_read(id)
-        begin
-            with_read_lock(file_from_id(id)) do |file|
-                data = file.read
-                yield Group.from_json(JSON.parse(data))
-            end
-        rescue Errno::ENOENT => e
-            raise 'group not found: ' + e.to_s
-        rescue Exception => e
-            raise e
-        end
+        return Group.from_json(JSON.parse(json))
     end
 
     def self.from_json(json)
@@ -311,14 +263,5 @@ class Group
         group.last_vote_result = json["last_vote_result"]
         group.quest_result = json["quest_result"]
         group
-    end
-
-    def self.file_from_id(id)
-        GROUP_FILE_PATH + '/' + id.to_s
-    end
-
-    ############################## Privates ###########################
-    def set_file(file)
-        @file = file
     end
 end
