@@ -198,7 +198,7 @@ class GroupController < ApplicationController
                     raise 'vote is not rejected, please start quest'
                 end
                 group.end_turn
-                group.save!
+                group.save!(@redis)
                 render_success({})
             end
         end
@@ -224,7 +224,7 @@ class GroupController < ApplicationController
                 player.last_quest_result = quest_result
                 player.status = Player::PLAYER_STATE_READY
                 group.check_quest
-                group.save!
+                group.save!(@redis)
                 render_success({})
             end
         end

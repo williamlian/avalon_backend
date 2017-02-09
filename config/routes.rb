@@ -29,6 +29,8 @@ Rails.application.routes.draw do
         # ?player_id=uuid
         # response {group: Group (character masked by player), player: Player}
         get '/player_view' => 'group#player_view'
+        
+        get '/push' => 'push#subscribe'
 
         ############################################################
         # Game Actions

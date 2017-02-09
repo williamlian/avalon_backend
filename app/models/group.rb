@@ -91,14 +91,14 @@ class Group
     end
 
     def next_king
-        king = self.players.values.select{|p| p.is_king}[0]
+        king = self.players.values.find{|p| p.is_king}
         if king.nil?
             raise 'no king found'
         end
         king.is_king = false
-        iKing = self.players.values.index(king)
+        iKing = king.player_sequence
         iKing = (iKing + 1) % self.size
-        self.players.values[iKing].is_king = true
+        self.players.values.find{|p| p.player_sequence == iKing}.is_king = true
     end
 
     # update the candidate pool
@@ -231,6 +231,7 @@ class Group
             raise 'cannot save, redis not ready'
         end
         redis.set(self.redis_key, self.to_json.to_s)
+        redis.publish("pub.#{self.id}", self.status)
     end
     
     def redis_key

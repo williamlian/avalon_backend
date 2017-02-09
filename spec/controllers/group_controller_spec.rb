@@ -195,11 +195,7 @@ describe GroupController do
     
     describe "start_vote" do
         it "should start a vote" do 
-            group = make_ready_group
-            king = group["group"]["players"].values.find{|player| player["is_king"]}
-            post :start_vote, {player_id: king["id"], knights: ["1","3","5"]}
-            get :show, {group_id: group["group"]["id"]}
-            group = JSON.parse(response.body)
+            group = make_voting_group
             
             (0...@size).each do |ps|
                 player = group["group"]["players"].values.find{|player| player["player_sequence"] == ps}
@@ -213,20 +209,151 @@ describe GroupController do
     end
     
     describe "vote" do
+        it "should mark user as voted" do
+            group = make_voting_group
+            player = group["group"]["players"].values.find{|p| p["player_sequence"] == 1}
+            
+            post :vote, {player_id: player["id"], vote: false}
+            get :show, {group_id: group["group"]["id"]}
+            group = JSON.parse(response.body)
+            player = group["group"]["players"].values.find{|p| p["player_sequence"] == 1}
+            
+            expect(player["last_vote"]).to be false
+        end
+        
         it "should pass when vote success" do
+            group = make_voted_group(@size / 2 + 1)
+            
+            expect(group["group"]["last_vote_result"]).to be true
         end
         
         it "should rejct when vote fail" do
+            group = make_voted_group(@size / 2 - 1)
+            
+            expect(group["group"]["last_vote_result"]).to be false
         end 
     end
     
     describe "start_quest" do
+        it "should put group into quest state" do
+            group = make_voted_group(@size)
+            king = group["group"]["players"].values.find{|p| p["is_king"]}
+            
+            post :start_quest, {player_id: king["id"]}
+            get :show, {group_id: group["group"]["id"]}
+            group = JSON.parse(response.body)
+            knights = group["group"]["players"].values.select{|p| p["is_knight"]}
+            
+            expect(group["group"]["status"]).to eq Group::GROUP_STATE_QUEST
+            knights.each do |knight|
+                expect(knight["status"]).to eq Player::PLAYER_STATE_QUEST
+            end
+        end
+        
+        it "should not start quest when vote is not completed" do
+            group = make_voting_group
+            
+            king = group["group"]["players"].values.find{|p| p["is_king"]}
+            post :start_quest, {player_id: king["id"]}
+            group = JSON.parse(response.body)
+            
+            expect(group["success"]).to be false
+            expect(group["message"]).to eq "vote is not accepted"
+        end
+        
+        it "should not start quest when vote is rejected" do
+            group = make_voted_group(0)
+            
+            king = group["group"]["players"].values.find{|p| p["is_king"]}
+            post :start_quest, {player_id: king["id"]}
+            group = JSON.parse(response.body)
+            
+            expect(group["success"]).to be false
+            expect(group["message"]).to eq "vote is not accepted"
+        end
     end
     
     describe "end_turn" do
+        it "should pass king to next player" do
+            group = make_voted_group(0)
+            
+            king = group["group"]["players"].values.find{|p| p["is_king"]}
+            post :end_turn, {player_id: king["id"]}
+            get :show, {group_id: group["group"]["id"]}
+            group = JSON.parse(response.body)
+            next_king = group["group"]["players"].values.find{|p| p["is_king"]}
+            
+            expect(next_king["player_sequence"]).to eq ((king["player_sequence"] + 1) % @size)
+            expect(group["group"]["status"]).to eq Group::GROUP_STATE_STARTED
+            expect(group["group"]["last_vote_result"]).to be nil
+            group["group"]["players"].values.each do |player|
+                expect(player["is_knight"]).to be false
+            end
+        end
+        
+        it "should not end turn if vote is approved" do 
+            group = make_voted_group(@size)
+            
+            king = group["group"]["players"].values.find{|p| p["is_king"]}
+            post :end_turn, {player_id: king["id"]}
+            group = JSON.parse(response.body)
+            
+            expect(group["success"]).to be false
+            expect(group["message"]).to eq "vote is not rejected, please start quest"
+        end
+        
+        it "should end the game if it is the fifth rejection" do
+            #TODO
+        end
     end
     
     describe "submit_quest" do
+        it "should store knight's result" do
+            group = make_voted_group(@size)
+            king = group["group"]["players"].values.find{|p| p["is_king"]}
+            knights = group["group"]["players"].values.select{|p| p["is_knight"]}
+            post :start_quest, {player_id: king["id"]}
+            
+            post :submit_quest, {player_id: knights[0]["id"], quest_result: true}
+            get :show, {group_id: group["group"]["id"]}
+            group = JSON.parse(response.body)
+            knights = group["group"]["players"].values.select{|p| p["is_knight"]}
+            
+            results = knights.map{|k| k["last_quest_result"]}
+            expect(results.select{|r|r}.length).to eq 1
+            expect(results.select{|r|r.nil?}.length).to eq (knights.length - 1)
+        end
+        
+        it "should store result and switch back to start state when quest is complete" do
+            group = make_voted_group(@size)
+            king = group["group"]["players"].values.find{|p| p["is_king"]}
+            knights = group["group"]["players"].values.select{|p| p["is_knight"]}
+            post :start_quest, {player_id: king["id"]}
+            
+            knights.each do |knight|
+                post :submit_quest, {player_id: knight["id"], quest_result: true}
+            end
+            get :show, {group_id: group["group"]["id"]}
+            group = JSON.parse(response.body)
+            next_king = group["group"]["players"].values.find{|p| p["is_king"]}
+            
+            expect(group["group"]["quest_result"]["success"]).to eq knights.length
+            expect(group["group"]["quest_result"]["failed"]).to eq 0
+            
+            # next round
+            expect(next_king["player_sequence"]).to eq ((king["player_sequence"] + 1) % @size)
+            expect(group["group"]["status"]).to eq Group::GROUP_STATE_STARTED
+            expect(group["group"]["last_vote_result"]).to be nil
+            group["group"]["players"].values.each do |player|
+                expect(player["is_knight"]).to be false
+                expect(player["last_quest_result"]).to be nil
+                expect(player["status"]).to eq Player::PLAYER_STATE_READY
+            end
+        end
+        
+        it "should mark quest as success according to rule" do
+            #TODO
+        end
     end
             
     ################################################################################################
@@ -272,5 +399,25 @@ describe GroupController do
         get :show, {group_id: group["group"]["id"]}
         JSON.parse(response.body)
     end
-        
+    
+    def make_voting_group
+        group = make_ready_group
+        king = group["group"]["players"].values.find{|player| player["is_king"]}
+        post :start_vote, {player_id: king["id"], knights: ["1","3","5"]}
+        get :show, {group_id: group["group"]["id"]}
+        JSON.parse(response.body)
+    end
+    
+    def make_voted_group(approve_count)
+        group = make_voting_group
+        players = group["group"]["players"].values
+        (0...approve_count).each do |i|
+            post :vote, {player_id: players[i]["id"], vote: true}
+        end
+        (approve_count...@size).each do |i|
+            post :vote, {player_id: players[i]["id"], vote: false}
+        end
+        get :show, {group_id: group["group"]["id"]}
+        JSON.parse(response.body)
+    end
 end
