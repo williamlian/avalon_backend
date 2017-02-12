@@ -101,9 +101,9 @@ class GroupController < ApplicationController
                     raise 'player not found'
                 end
                 player = group.players[player_id]
-                if !player.is_ready
-                    raise 'player is not ready'
-                end
+                # if !player.is_ready
+                #     raise 'player is not ready'
+                # end
                 if group.status == Group::GROUP_STATE_CREATED
                     raise 'group is not open yet'
                 end

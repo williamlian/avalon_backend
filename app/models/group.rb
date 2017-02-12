@@ -12,13 +12,11 @@ class Group
         :last_vote_result,
         :quest_result
 
-    GROUP_FILE_PATH = '/var/tmp/avalon/groups/'
-
-    GROUP_STATE_CREATED = 'created'
-    GROUP_STATE_OPEN    = 'open'
-    GROUP_STATE_STARTED = 'started'
-    GROUP_STATE_VOTING  = 'voting'
-    GROUP_STATE_QUEST   = 'quest'
+    GROUP_STATE_CREATED = 'created' # means still need character setting, not ready to jion
+    GROUP_STATE_OPEN    = 'open'    # means open for joining
+    GROUP_STATE_STARTED = 'started' # means there is no more space, game starts
+    GROUP_STATE_VOTING  = 'voting'  # means kinghts has been selected, waiting to vote
+    GROUP_STATE_QUEST   = 'quest'   # means votes approved, starting quest
 
     def initialize
         self.id = 100000 + rand(900000)
@@ -215,12 +213,16 @@ class Group
     end
 
     def player_view(player)
+        players = []
+        if player.is_ready
+            players = players.map {|id,p| p.character_view(player.character)}
+        end
         {
             id: id,
             player_count: player_count,
             size: size,
             status: status,
-            players: players.map {|id,p| p.character_view(player.character)},
+            players: players,
             last_vote_result: last_vote_result,
             quest_result: quest_result,
         }
@@ -231,7 +233,7 @@ class Group
             raise 'cannot save, redis not ready'
         end
         redis.set(self.redis_key, self.to_json.to_s)
-        redis.publish("pub.#{self.id}", self.status)
+        redis.publish("pub.#{self.id}", 1)
     end
     
     def redis_key

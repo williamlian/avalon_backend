@@ -5,8 +5,9 @@ class PushController < ApplicationController
     include ActionController::Live
     
     def subscribe
-        group_id = params[:group_id]
+        player_id = params[:player_id]
         redis = Redis.connect(timeout: 36000)
+        group_id = redis.get(player_id)
         
         response.headers['Content-Type'] = 'text/event-stream'
         
@@ -14,7 +15,7 @@ class PushController < ApplicationController
             puts "Subscribing #{group_id}"
             redis.subscribe("pub.#{group_id}") do |on|
               on.message do |channel, msg|
-                response.stream.write "msg"
+                response.stream.write "data: ${msg}\n\n"
               end
             end
         rescue => e

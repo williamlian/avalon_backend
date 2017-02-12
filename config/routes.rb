@@ -30,7 +30,7 @@ Rails.application.routes.draw do
         # response {group: Group (character masked by player), player: Player}
         get '/player_view' => 'group#player_view'
         
-        get '/push' => 'push#subscribe'
+        get '/subscribe/:player_id' => 'push#subscribe'
 
         ############################################################
         # Game Actions
