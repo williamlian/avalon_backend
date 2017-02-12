@@ -6,7 +6,7 @@ class PushController < ApplicationController
     
     def subscribe
         player_id = params[:player_id]
-        redis = Redis.connect(timeout: 5000)
+        redis = Redis.connect(timeout: 1800)
         group_id = redis.get(player_id)
         
         response.headers['Content-Type'] = 'text/event-stream'
