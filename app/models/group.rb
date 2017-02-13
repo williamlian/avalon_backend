@@ -213,16 +213,16 @@ class Group
     end
 
     def player_view(player)
-        players = []
+        player_view_list = []
         if player.is_ready
-            players = players.map {|id,p| p.character_view(player.character)}
+            player_view_list = players.map {|id,p| p.character_view(player.character)}
         end
         {
             id: id,
             player_count: player_count,
             size: size,
             status: status,
-            players: players,
+            players: player_view_list,
             last_vote_result: last_vote_result,
             quest_result: quest_result,
         }
