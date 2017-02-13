@@ -233,7 +233,11 @@ class Group
             raise 'cannot save, redis not ready'
         end
         redis.set(self.redis_key, self.to_json.to_s)
-        redis.publish("pub.#{self.id}", 1)
+
+        # publish to every player
+        self.players.each do |id, player|
+            redis.publish("pub.#{player.id}", 1)
+        end
     end
     
     def redis_key

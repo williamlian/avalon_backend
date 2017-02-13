@@ -32,6 +32,8 @@ Rails.application.routes.draw do
         
         get '/subscribe/:player_id' => 'push#subscribe'
 
+        get '/unsubscribe/:player_id' => 'push#unsubscribe'
+
         ############################################################
         # Game Actions
         ############################################################
