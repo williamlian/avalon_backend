@@ -268,18 +268,20 @@ class GroupController < ApplicationController
         player_id = params[:player_id]
         run_with_rescue do
             group_id = @redis.get(player_id)
+            player_ids = []
             @redis.lock(group_id) do
                 group = Group.load(group_id, @redis)
                 if !group.is_owner?(player_id)
                     raise 'only groupon owner can delete group'
                 end
                 group.players.each do |id, player|
-                    @redis.publish("pub.#{id}", 'abandon')
                     @redis.del(id)
+                    player_ids.push(id)
                 end
-                @redis.del(group_id)
-                render_success({})
             end
+            @redis.del(group_id)
+            render_success({})
+            player_ids.each{|id| @redis.publish("pub.#{id}", 'abandon')}
         end
     end
 

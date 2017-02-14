@@ -18,6 +18,9 @@ class PushController < ApplicationController
                     raise Interrupt.new('client unsubscribed')
                 end
                 response.stream.write "data: ${msg}\n\n"
+                if msg == 'abandon'
+                    raise Interrupt.new('client abandoned')
+                end
               end
             end
         rescue Interrupt => e
