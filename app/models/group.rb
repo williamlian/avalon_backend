@@ -10,7 +10,6 @@ class Group
         :character_pool,
         :owner,
         :last_vote_result,
-        :quest_result,
 
         :vote_count,
         :quests,
@@ -33,7 +32,6 @@ class Group
         self.character_pool = []
         self.owner = nil
         self.last_vote_result = nil
-        self.quest_result = {success: 0, failed: 0}
 
         self.vote_count = 0
         self.quests = []
@@ -157,6 +155,7 @@ class Group
             if accepted.length > rejected.length
                 puts "vote passed #{accepted.length}/#{rejected.length}"
                 self.last_vote_result = true
+                self.vote_count = 0
             else
                 puts "vote rejected #{accepted.length}/#{rejected.length}"
                 self.last_vote_result = false
@@ -174,8 +173,6 @@ class Group
         self.players.values.each{|p|p.last_vote = nil}
         self.last_vote_result = nil
         # set group state to quest
-        self.quest_result[:success] = 0
-        self.quest_result[:failed] = 0
         self.players.values.each do |player|
             if player.is_knight
                 player.status = Player::PLAYER_STATE_QUEST
@@ -209,7 +206,7 @@ class Group
         else
             success = voted_knights.select{|v|v.last_quest_result}
             failed = voted_knights.reject{|v|v.last_quest_result}
-            fail_required = self.setting.fails[self.quest_number]
+            fail_required = self.setting[:fails][self.quest_number]
 
             self.quests.push({
                 success: success.length,
@@ -222,8 +219,8 @@ class Group
                 p.status = Player::PLAYER_STATE_READY
             end
 
-            success_count = self.quests.select{|q| q.result}.length
-            failed_count = self.quests.select{|q| !q.result}.length
+            success_count = self.quests.select{|q| q[:result]}.length
+            failed_count = self.quests.select{|q| !q[:result]}.length
             if success_count > GameSetting::MAX_QUEST / 2
                 self.clean_vote
                 self.status = GROUP_STATE_ASSASSINATION
@@ -250,7 +247,11 @@ class Group
     end
 
     def last_quest_result
-        return self.quests[-1]
+        if self.quests.length == 0
+            return {success: 0, failed: 0, result: nil}
+        else
+            return self.quests[-1]
+        end
     end
 
     def is_owner?(player_id)
@@ -349,7 +350,9 @@ class Group
         group.character_pool = json["character_pool"]
         group.owner = json["owner"]
         group.last_vote_result = json["last_vote_result"]
-        group.quest_result = json["quest_result"]
+        group.quests = json["quests"]
+        group.vote_count = json["vote_count"].to_i
+        group.winner = json["winner"]
         group
     end
 end

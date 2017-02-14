@@ -66,8 +66,8 @@ class GroupController < ApplicationController
             @redis.lock(group_id) do |lock|
                 group = Group.load(group_id, @redis)
                 player = group.join_as_player
-                group.save!(@redis)
                 @redis.set(player.id, group.id)
+                group.save!(@redis)
                 render_success({group: group.player_view(player), player: player.render_self})
             end
         end
@@ -76,7 +76,7 @@ class GroupController < ApplicationController
     # mark a player as ready, which will implicitly assign a character.
     def ready
         player_id = params[:player_id]
-        name = params[:name]
+        player_name = params[:name]
         photo = params[:photo]
         run_with_rescue do
             group_id = @redis.get(player_id)
@@ -90,7 +90,7 @@ class GroupController < ApplicationController
                     raise 'player is ready'
                 end
                 group.assign_character(player)
-                player.ready(name, photo)
+                player.ready(player_name, photo)
                 if group.is_all_ready?
                     group.status = Group::GROUP_STATE_STARTED
                     group.choose_king
