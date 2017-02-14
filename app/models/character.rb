@@ -96,6 +96,30 @@ class Character
         }
     }
 
+    SIDE_GOOD = 'good'
+    SIDE_EVIL = 'evil'
+    SIDE_MAP = {
+        MERLIN => SIDE_GOOD,
+        PERCIVAL => SIDE_GOOD,
+        ROYAL_SERVANT => SIDE_GOOD,
+        ASSASSIN => SIDE_EVIL,
+        MORGANA => SIDE_EVIL,
+        MORDRED => SIDE_EVIL,
+        OBERON => SIDE_EVIL,
+        MINION => SIDE_EVIL
+    }
+
+    NAME_MAP = {
+        MERLIN => 'Merlin',
+        PERCIVAL => 'Percival',
+        ROYAL_SERVANT => 'Royal Servant of Arthur',
+        ASSASSIN => 'Assassin',
+        MORGANA => 'Morgana',
+        MORDRED => 'Mordred',
+        OBERON => 'Oberon',
+        MINION => 'Minion of Mordred'
+    }
+
     def self.candidate_pool
         [
             MERLIN,
@@ -121,6 +145,9 @@ class Character
     end
 
     def self.validate_list(characters)
+        if characters.nil?
+            return false
+        end
         characters.each {|c| return false if !validate(c)}
         true
     end

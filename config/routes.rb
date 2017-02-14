@@ -15,10 +15,6 @@ Rails.application.routes.draw do
         # response: {group: Group, player: Player(self rendered)}
         post '/group/:group_id/join' => 'group#join'
 
-        # post {player_id: uuid, name:string, photo: base64 string}
-        # response {player: Player (self rendered)}
-        post '/ready' => 'group#ready'
-        
         # character list
         # response {characters: Character[]}
         get '/characters' => 'character#index'
@@ -38,8 +34,16 @@ Rails.application.routes.draw do
         # Game Actions
         ############################################################
 
-        # king start a vote
+        # post {player_id: uuid, name:string, photo: base64 string}
+        # response {player: Player (self rendered)}
+        post '/ready' => 'group#ready'
+
+        # same as start_vote but does not start the vote
         # post {player_id: uuid, knights: [player sequences]}
+        post '/nominate' => 'group#nominate'
+
+        # king start a vote, knights will be the last nominated knights
+        # post {player_id: uuid}
         post '/start_vote' => 'group#start_vote'
 
         # post {player_id: uuid, vote: bool}
@@ -60,11 +64,11 @@ Rails.application.routes.draw do
         ############################################################
         # Misc
         ############################################################
-        # player quit
-        #delete '/player/:player_id' => 'player#delete'
+        # abandon group, only owner can call
+        post '/abandon' => 'group#abandon'
 
         # DEBUG ONLY
         get '/admin/group/:group_id' => 'group#show'
-        get '/admin/test_group' => 'group#create_test_group'
+        get '/admin/delete/:group_id' => 'group#delete'
     end  
 end

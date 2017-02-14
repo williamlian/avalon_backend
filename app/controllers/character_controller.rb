@@ -1,7 +1,14 @@
 class CharacterController < ApplicationController
 
 	def index
-		render_success({characters: Character.candidate_pool})
+		characters = Character.candidate_pool.map do |ch|
+			{
+				key: ch,
+				name: Character::NAME_MAP[ch],
+				side: Character::SIDE_MAP[ch]
+			}
+		end
+		render_success({characters: characters})
 	end
 
 end

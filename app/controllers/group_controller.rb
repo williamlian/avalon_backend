@@ -10,9 +10,13 @@ class GroupController < ApplicationController
 
     # create a new group, automatically add the current user as owner
     def create
-        group_size = params[:size]
+        group_size = params[:size].to_i
         
         run_with_rescue do
+            setting = GameSetting::GAME[group_size]
+            if setting.nil?
+                raise 'group size must be within 5 and 12'
+            end
             group = Group.new
             # lock on group ID
             @redis.lock(group.id) do |lock|
@@ -20,7 +24,7 @@ class GroupController < ApplicationController
                 player = group.join_as_owner()
                 group.save!(@redis)
                 @redis.set(player.id, group.id)
-                render_success({group: group.render, player: player.render_self})
+                render_success({group: group.player_view(player), player: player.render_self})
             end
         end
     end
@@ -35,15 +39,22 @@ class GroupController < ApplicationController
             if !Character.validate_list(candidates)
                 raise 'not valid character pool'
             end
+            
             @redis.lock(group_id) do |lock|
                 group = Group.load(group_id, @redis)
                 if group.nil?
                     raise 'group not found'
                 end
+
+                validation = GameSetting.verify_candidates(group.size, candidates)
+                if !validation[:valid]
+                    raise validation[:message]
+                end
+
                 group.update_character_pool(player_id, candidates)
                 group.save!(@redis)
                 player = group.players[player_id]
-                render_success({group: group.render, player: player.render_self})
+                render_success({})
             end
         end
     end
@@ -57,7 +68,7 @@ class GroupController < ApplicationController
                 player = group.join_as_player
                 group.save!(@redis)
                 @redis.set(player.id, group.id)
-                render_success({group: group.render, player: player.render_self})
+                render_success({group: group.player_view(player), player: player.render_self})
             end
         end
     end
@@ -85,7 +96,7 @@ class GroupController < ApplicationController
                     group.choose_king
                 end
                 group.save!(@redis)
-                render_success({group: group.render, player: player.render_self})
+                render_success({group: group.player_view(player), player: player.render_self})
             end
         end
     end
@@ -113,7 +124,7 @@ class GroupController < ApplicationController
     end
 
     # knights is a list of user sequences
-    def start_vote
+    def nominate
         player_id = params[:player_id]
         knights = params[:knights].map{|x|x.to_i}
         run_with_rescue do
@@ -129,7 +140,30 @@ class GroupController < ApplicationController
                 if !player.is_king
                     raise 'only king can start voting'
                 end
-                group.start_vote(knights)
+                group.nominate(knights)
+                group.save!(@redis)
+                render_success({})
+            end
+        end
+    end
+
+    # knights is a list of user sequence
+    def start_vote
+        player_id = params[:player_id]
+        run_with_rescue do
+            group_id = @redis.get(player_id)
+            @redis.lock(group_id) do |lock|
+                group = Group.load(group_id, @redis)
+                if group.status == Group::GROUP_STATE_VOTING
+                    raise 'voting is already started'
+                elsif group.status != Group::GROUP_STATE_STARTED
+                    raise 'game is not started'
+                end
+                player = group.players[player_id]
+                if !player.is_king
+                    raise 'only king can start voting'
+                end
+                group.start_vote
                 group.save!(@redis)
                 render_success({})
             end
@@ -230,6 +264,25 @@ class GroupController < ApplicationController
         end
     end
 
+    def abandon
+        player_id = params[:player_id]
+        run_with_rescue do
+            group_id = @redis.get(player_id)
+            @redis.lock(group_id) do
+                group = Group.load(group_id, @redis)
+                if !group.is_owner?(player_id)
+                    raise 'only groupon owner can delete group'
+                end
+                group.players.each do |id, player|
+                    @redis.publish("pub.#{id}", 'abandon')
+                    @redis.del(id)
+                end
+                @redis.del(group_id)
+                render_success({})
+            end
+        end
+    end
+
     # admin function
     def show
         group_id = params[:group_id]
@@ -241,18 +294,17 @@ class GroupController < ApplicationController
         end
     end
 
-    def create_test_group
-        size = params[:size].to_i
+    def delete
+        group_id = params[:group_id]
         run_with_rescue do
-            group = Group.new
-            @redis.lock(group.id) do |lock|
-                owner = group.join_as_owner
-                group.update_character_pool(owner.id, Character.candidate_pool[0...size])
-                group.assign_character(owner)
-                owner.ready('owner', '')
-                group.save!(@redis)
-                render_success({group: group.render, player: owner.render_self})
+            @redis.lock(group_id) do |lock|
+                group = Group.load(group_id, @redis)
+                group.players.each do |id, player|
+                    @redis.del(id)
+                end
             end
+            @redis.del(group_id)
+            render_success({})
         end
     end
 end

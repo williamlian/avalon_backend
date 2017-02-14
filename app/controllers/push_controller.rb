@@ -14,7 +14,7 @@ class PushController < ApplicationController
             puts "Subscribing #{player_id}"
             redis.subscribe("pub.#{player_id}") do |on|
               on.message do |channel, msg|
-                if msg.to_i == 0
+                if msg == 'cancel'
                     raise Interrupt.new('client unsubscribed')
                 end
                 response.stream.write "data: ${msg}\n\n"
@@ -36,7 +36,7 @@ class PushController < ApplicationController
         player_id = params[:player_id]
         redis = Redis.connect
 
-        redis.publish("pub.#{player_id}", 0)
+        redis.publish("pub.#{player_id}", 'cancel')
         render :json => {}
     end
 end

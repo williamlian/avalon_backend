@@ -13,7 +13,7 @@ class Player
 		:is_knight,
 		:last_vote,
 		:last_quest_result,
-		:status
+		:status,
 
 	PLAYER_STATE_CREATED = 'created'
 	PLAYER_STATE_READY = 'ready'
@@ -58,11 +58,31 @@ class Player
 			is_knight: is_knight,
 			player_sequence: player_sequence,
 			last_vote: last_vote,
+			voted: !last_vote.nil?,
+			side: Character::SIDE_MAP[character]
 		}
 	end
 
 	def character_view(viewing_character)
 		mapped_character = Character::VIEW_MAP[viewing_character][character] rescue nil
+		{
+			name: name,
+			photo: photo,
+			character: mapped_character,
+			is_ready: is_ready,
+			is_king: is_king,
+			is_knight: is_knight,
+			player_sequence: player_sequence,
+			last_vote: last_vote,
+			voted: !last_vote.nil?
+		}
+	end
+
+	def assassination_view(viewing_character)
+		mapped_character = Character::VIEW_MAP[viewing_character][character] rescue nil
+		if Character::SIDE_MAP[character] == Character::SIDE_EVIL
+			mapped_character = character
+		end
 		{
 			name: name,
 			photo: photo,

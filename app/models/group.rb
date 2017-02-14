@@ -10,13 +10,19 @@ class Group
         :character_pool,
         :owner,
         :last_vote_result,
-        :quest_result
+        :quest_result,
 
-    GROUP_STATE_CREATED = 'created' # means still need character setting, not ready to jion
-    GROUP_STATE_OPEN    = 'open'    # means open for joining
-    GROUP_STATE_STARTED = 'started' # means there is no more space, game starts
-    GROUP_STATE_VOTING  = 'voting'  # means kinghts has been selected, waiting to vote
-    GROUP_STATE_QUEST   = 'quest'   # means votes approved, starting quest
+        :vote_count,
+        :quests,
+        :winner
+
+    GROUP_STATE_CREATED         = 'created'         # means still need character setting, not ready to jion
+    GROUP_STATE_OPEN            = 'open'            # means open for joining
+    GROUP_STATE_STARTED         = 'started'         # means there is no more space, game starts
+    GROUP_STATE_VOTING          = 'voting'          # means kinghts has been selected, waiting to vote
+    GROUP_STATE_QUEST           = 'quest'           # means votes approved, starting quest
+    GROUP_STATE_ASSASSINATION   = 'assassination'   # means the evil turn to identify merlin
+    GROUP_STATE_END             = 'end'             # means game ended
 
     def initialize
         self.id = 100000 + rand(900000)
@@ -28,6 +34,10 @@ class Group
         self.owner = nil
         self.last_vote_result = nil
         self.quest_result = {success: 0, failed: 0}
+
+        self.vote_count = 0
+        self.quests = []
+        self.winner = nil
     end
 
     # returns a  Player
@@ -111,14 +121,28 @@ class Group
         elsif new_candidates.length != self.size
             raise 'candidate size does not match group size'
         end
+
         self.character_pool = new_candidates
         self.status = Group::GROUP_STATE_OPEN
     end
 
-    def start_vote(player_sequences)
-        knights = self.players.values.select{|p| p.player_sequence.in?(player_sequences)}
+    def nominate(player_sequences)
+        self.players.values.each do |player|
+            if player.player_sequence.in?(player_sequences)
+                player.is_knight = true
+            else
+                player.is_knight = false
+            end
+        end
+    end
+
+    def start_vote()
+        knights = self.players.values.select{|p| p.is_knight}
+        if knights.empty?
+            raise 'no knights selected'
+        end
         puts "knights selected: " + knights.map{|k|k.name}.join(",")
-        knights.each {|k| k.is_knight = true}
+        self.vote_count += 1
         self.status = Group::GROUP_STATE_VOTING
     end
 
@@ -136,6 +160,11 @@ class Group
             else
                 puts "vote rejected #{accepted.length}/#{rejected.length}"
                 self.last_vote_result = false
+
+                if self.vote_count == GameSetting::MAX_VOTE
+                    self.status = GROUP_STATE_END
+                    self.winner = Character::SIDE_EVIL
+                end
             end
         end
     end
@@ -155,12 +184,17 @@ class Group
         self.status = GROUP_STATE_QUEST
     end
 
-    def end_turn
+    # clean up remine states of voting
+    def clean_vote
         # clear voting state
         self.players.values.each{|p|p.last_vote = nil}
         self.last_vote_result = nil
         # clear knight candidates
         self.players.values.each{|p|p.is_knight = false}
+    end
+
+    def end_turn
+        self.clean_vote
         # move king
         self.next_king
         # move back to play mode
@@ -175,15 +209,48 @@ class Group
         else
             success = voted_knights.select{|v|v.last_quest_result}
             failed = voted_knights.reject{|v|v.last_quest_result}
-            self.quest_result[:success] = success.length
-            self.quest_result[:failed] = failed.length
+            fail_required = self.setting.fails[self.quest_number]
+
+            self.quests.push({
+                success: success.length,
+                failed: failed.length,
+                result: failed.length < fail_required
+            })
             puts "check quest: #{success.length} / #{failed.length}"
             self.players.values.each do |p| 
                 p.last_quest_result = nil
                 p.status = Player::PLAYER_STATE_READY
             end
-            self.end_turn
+
+            success_count = self.quests.select{|q| q.result}.length
+            failed_count = self.quests.select{|q| !q.result}.length
+            if success_count > GameSetting::MAX_QUEST / 2
+                self.clean_vote
+                self.status = GROUP_STATE_ASSASSINATION
+            elsif failed_count > GameSetting::MAX_QUEST / 2
+                self.clean_vote
+                self.status = GROUP_STATE_END
+                self.winner = Character::SIDE_EVIL
+            elsif self.quest_number > GameSetting::MAX_QUEST
+                self.clean_vote
+                self.status = GROUP_STATE_END
+                self.winner = nil
+            else
+                self.end_turn
+            end
         end
+    end
+
+    def setting
+        return GameSetting::GAME[self.size]
+    end
+
+    def quest_number
+        return self.quests.length + 1
+    end
+
+    def last_quest_result
+        return self.quests[-1]
     end
 
     def is_owner?(player_id)
@@ -200,31 +267,45 @@ class Group
         return ready == self.size
     end
 
-    def render
-        {
-            id: id,
-            player_count: player_count,
-            size: size,
-            status: status,
-            players: players.map {|id,p| p.render},
-            last_vote_result: last_vote_result,
-            quest_result: quest_result,
-        }
-    end
+    # def render
+    #     {
+    #         id: id,
+    #         player_count: player_count,
+    #         size: size,
+    #         status: status,
+    #         players: players.map {|id,p| p.render},
+    #         last_vote_result: last_vote_result,
+    #         quest_result: last_quest_result,
+    #         vote_count: vote_count,
+    #         quests: quests,
+    #         winner: winner
+    #     }
+    # end
 
     def player_view(player)
         player_view_list = []
         if player.is_ready
-            player_view_list = players.map {|id,p| p.character_view(player.character)}
+            if self.status == GROUP_STATE_ASSASSINATION
+                player_view_list = players.map {|id,p| p.assassination_view(player.character)}
+            else
+                player_view_list = players.map {|id,p| p.character_view(player.character)}
+            end
         end
+        
         {
             id: id,
             player_count: player_count,
             size: size,
             status: status,
             players: player_view_list,
+            setting: GameSetting::GAME[size],
+
             last_vote_result: last_vote_result,
-            quest_result: quest_result,
+            quest_result: last_quest_result,
+            vote_count: vote_count,
+            quests: quests,
+            winner: winner
+
         }
     end
 
@@ -236,7 +317,7 @@ class Group
 
         # publish to every player
         self.players.each do |id, player|
-            redis.publish("pub.#{player.id}", 1)
+            redis.publish("pub.#{player.id}", 'update')
         end
     end
     
