@@ -1,3 +1,5 @@
 == README
 
 http://www.sitepoint.com/deploy-your-rails-app-to-aws/
+
+https://medium.com/@andrewcbass/install-redis-v3-2-on-aws-ec2-instance-93259d40a3ce#.s0vpjh3dp

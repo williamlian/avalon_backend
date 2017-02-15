@@ -5,7 +5,7 @@ require 'redis-lock'
 class GroupController < ApplicationController
     
     def initialize
-        @redis = Redis.new
+        @redis = Redis.new({host: Rails.application.config.redis_host})
     end
 
     # create a new group, automatically add the current user as owner

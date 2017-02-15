@@ -3,16 +3,19 @@ require 'json'
 
 class PushController < ApplicationController
     include ActionController::Live
+
+    def initialize
+        @redis = Redis.new({host: Rails.application.config.redis_host, timeout: 3600})
+    end
     
     def subscribe
         player_id = params[:player_id]
-        redis = Redis.connect(timeout: 3600)
         
         response.headers['Content-Type'] = 'text/event-stream'
         
         begin
             puts "Subscribing #{player_id}"
-            redis.subscribe("pub.#{player_id}") do |on|
+            @redis.subscribe("pub.#{player_id}") do |on|
               on.message do |channel, msg|
                 json = JSON.parse(msg)
                 if json["type"] == 'cancel'
@@ -38,9 +41,8 @@ class PushController < ApplicationController
 
     def unsubscribe
         player_id = params[:player_id]
-        redis = Redis.connect
 
-        redis.publish("pub.#{player_id}", {type: 'cancle'}.to_json)
+        @redis.publish("pub.#{player_id}", {type: 'cancle'}.to_json)
         render :json => {}
     end
 end
