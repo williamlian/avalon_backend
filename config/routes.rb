@@ -60,12 +60,20 @@ Rails.application.routes.draw do
 
         # post {player_id: uuid, quest_result: bool}
         post '/submit_quest' => 'group#submit_quest'
+
+        # post {player_id: uuid, target: sequence}
+        post '/nominate_assassination' => 'group#nominate_assassination'
+
+        # post {player_id: uuid}
+        post '/assassinate' => 'group#assassinate'
         
         ############################################################
         # Misc
         ############################################################
         # abandon group, only owner can call
         post '/abandon' => 'group#abandon'
+
+        post '/quit' => 'group#quit'
 
         # DEBUG ONLY
         get '/admin/group/:group_id' => 'group#show'

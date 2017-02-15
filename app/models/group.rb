@@ -13,7 +13,8 @@ class Group
 
         :vote_count,
         :quests,
-        :winner
+        :winner,
+        :win_by
 
     GROUP_STATE_CREATED         = 'created'         # means still need character setting, not ready to jion
     GROUP_STATE_OPEN            = 'open'            # means open for joining
@@ -36,6 +37,7 @@ class Group
         self.vote_count = 0
         self.quests = []
         self.winner = nil
+        self.win_by = nil
     end
 
     # returns a  Player
@@ -74,6 +76,12 @@ class Group
         self.player_count += 1
         player.group_id = self.id
         player
+    end
+
+    def remove_player(player)
+        character_pool.push player.character
+        players.delete(player.id)
+        self.player_count -= 1
     end
 
     # given a player assign a character for the player and update group
@@ -139,6 +147,9 @@ class Group
         if knights.empty?
             raise 'no knights selected'
         end
+        if knights.length != knights_required
+            raise "must select #{knights_required} knights"
+        end
         puts "knights selected: " + knights.map{|k|k.name}.join(",")
         self.vote_count += 1
         self.status = Group::GROUP_STATE_VOTING
@@ -155,7 +166,6 @@ class Group
             if accepted.length > rejected.length
                 puts "vote passed #{accepted.length}/#{rejected.length}"
                 self.last_vote_result = true
-                self.vote_count = 0
             else
                 puts "vote rejected #{accepted.length}/#{rejected.length}"
                 self.last_vote_result = false
@@ -172,6 +182,7 @@ class Group
         # clear voting state
         self.players.values.each{|p|p.last_vote = nil}
         self.last_vote_result = nil
+        self.vote_count = 0
         # set group state to quest
         self.players.values.each do |player|
             if player.is_knight
@@ -190,6 +201,7 @@ class Group
         self.players.values.each{|p|p.is_knight = false}
     end
 
+    # end turn does not reset vote count, only a quest will
     def end_turn
         self.clean_vote
         # move king
@@ -206,21 +218,23 @@ class Group
         else
             success = voted_knights.select{|v|v.last_quest_result}
             failed = voted_knights.reject{|v|v.last_quest_result}
-            fail_required = self.setting[:fails][self.quest_number]
 
             self.quests.push({
                 success: success.length,
                 failed: failed.length,
-                result: failed.length < fail_required
+                result: failed.length < self.fails_required
             })
-            puts "check quest: #{success.length} / #{failed.length}"
+            puts "check quest: #{success.length} / #{failed.length}, fails_required: #{self.fails_required}"
             self.players.values.each do |p| 
                 p.last_quest_result = nil
                 p.status = Player::PLAYER_STATE_READY
             end
 
             success_count = self.quests.select{|q| q[:result]}.length
-            failed_count = self.quests.select{|q| !q[:result]}.length
+            failed_count = self.quests.reject{|q| q[:result]}.length
+            puts "quest status: #{success_count} / #{failed_count} over #{GameSetting::MAX_QUEST}"
+            puts self.quests.to_json.to_s
+
             if success_count > GameSetting::MAX_QUEST / 2
                 self.clean_vote
                 self.status = GROUP_STATE_ASSASSINATION
@@ -228,6 +242,7 @@ class Group
                 self.clean_vote
                 self.status = GROUP_STATE_END
                 self.winner = Character::SIDE_EVIL
+                self.win_by = 'quest'
             elsif self.quest_number > GameSetting::MAX_QUEST
                 self.clean_vote
                 self.status = GROUP_STATE_END
@@ -235,6 +250,30 @@ class Group
             else
                 self.end_turn
             end
+        end
+    end
+
+    def nominate_assassination(target)
+        if target.is_evil?
+            raise 'cannot assassinate an evil player'
+        end
+        self.players.values.each {|p| p.assassination_target = false}
+        target.assassination_target = true
+    end
+
+    def assassinate(player)
+        if self.status != Group::GROUP_STATE_ASSASSINATION
+            raise 'not in assassination section'
+        end
+
+        if player.character == Character::MERLIN
+            self.status = GROUP_STATE_END
+            self.winner = Character::SIDE_EVIL
+            self.win_by = 'assassination'
+        else
+            self.status = GROUP_STATE_END
+            self.winner = Character::SIDE_GOOD
+            self.win_by = 'quest'
         end
     end
 
@@ -246,12 +285,24 @@ class Group
         return self.quests.length + 1
     end
 
+    def knights_required
+        return self.setting[:knights][self.quest_number - 1]
+    end
+
+    def fails_required
+        return self.setting[:fails][self.quest_number - 1]
+    end
+
     def last_quest_result
         if self.quests.length == 0
             return {success: 0, failed: 0, result: nil}
         else
             return self.quests[-1]
         end
+    end
+
+    def has_vote_result
+        not self.last_vote_result.nil?
     end
 
     def is_owner?(player_id)
@@ -268,32 +319,22 @@ class Group
         return ready == self.size
     end
 
-    # def render
-    #     {
-    #         id: id,
-    #         player_count: player_count,
-    #         size: size,
-    #         status: status,
-    #         players: players.map {|id,p| p.render},
-    #         last_vote_result: last_vote_result,
-    #         quest_result: last_quest_result,
-    #         vote_count: vote_count,
-    #         quests: quests,
-    #         winner: winner
-    #     }
-    # end
-
     def player_view(player)
         player_view_list = []
+        type = :normal
+        if has_vote_result
+            type = :vote
+        elsif status == GROUP_STATE_ASSASSINATION
+            type = :assassination
+        elsif status == GROUP_STATE_END
+            type = :end
+        end
+
         if player.is_ready
-            if self.status == GROUP_STATE_ASSASSINATION
-                player_view_list = players.map {|id,p| p.assassination_view(player.character)}
-            else
-                player_view_list = players.map {|id,p| p.character_view(player.character)}
-            end
+            player_view_list = players.map {|id,p| p.character_view(player.character, type)}
         end
         
-        {
+        return {
             id: id,
             player_count: player_count,
             size: size,
@@ -305,8 +346,10 @@ class Group
             quest_result: last_quest_result,
             vote_count: vote_count,
             quests: quests,
-            winner: winner
-
+            winner: winner,
+            win_by: win_by,
+            knights_required: knights_required,
+            fails_required: fails_required
         }
     end
 
@@ -318,7 +361,9 @@ class Group
 
         # publish to every player
         self.players.each do |id, player|
-            redis.publish("pub.#{player.id}", 'update')
+            player_data = {group: player_view(player), player: player.render_self}
+            message = {type: 'update', data: player_data}.to_json
+            redis.publish("pub.#{player.id}", message)
         end
     end
     
@@ -350,9 +395,16 @@ class Group
         group.character_pool = json["character_pool"]
         group.owner = json["owner"]
         group.last_vote_result = json["last_vote_result"]
-        group.quests = json["quests"]
+        group.quests = json["quests"].map do |q|
+            {
+                success: q["success"],
+                failed: q["failed"],
+                result: q["result"]
+            }
+        end
         group.vote_count = json["vote_count"].to_i
         group.winner = json["winner"]
+        group.win_by = json["win_by"]
         group
     end
 end

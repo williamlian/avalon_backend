@@ -264,6 +264,53 @@ class GroupController < ApplicationController
         end
     end
 
+    def nominate_assassination
+        player_id = params[:player_id]
+        target_seq = params[:target].to_i
+        run_with_rescue do
+            group_id = @redis.get(player_id)
+            @redis.lock(group_id) do |lock|
+                group = Group.load(group_id, @redis)
+                if group.status != Group::GROUP_STATE_ASSASSINATION
+                    raise 'not in assassination section'
+                end
+                player = group.players[player_id]
+                target = group.players.values.find{|p|p.player_sequence == target_seq}
+                if target.nil?
+                    raise 'target does not exist'
+                end
+                unless player.is_evil?
+                    raise 'only evil player can nominate assassination'
+                end
+
+                group.nominate_assassination(target)
+                group.save!(@redis)
+                render_success({})
+            end
+        end
+    end
+
+    def assassinate
+        player_id = params[:player_id]
+        run_with_rescue do
+            group_id = @redis.get(player_id)
+            @redis.lock(group_id) do
+                group = Group.load(group_id, @redis)
+                player = group.players[player_id]
+                unless player.is_evil?
+                    raise 'only evil can assassinate'
+                end
+                target = group.players.values.find{|p| p.assassination_target}
+                if target.nil?
+                    raise 'assassination target not found'
+                end
+                group.assassinate(target)
+                group.save!(@redis)
+                render_success({})
+            end
+        end
+    end
+
     def abandon
         player_id = params[:player_id]
         run_with_rescue do
@@ -281,7 +328,33 @@ class GroupController < ApplicationController
             end
             @redis.del(group_id)
             render_success({})
-            player_ids.each{|id| @redis.publish("pub.#{id}", 'abandon')}
+            player_ids.each{|id| @redis.publish("pub.#{id}", {type: 'abandon'}.to_json)}
+        end
+    end
+
+    def quit
+        player_id = params[:player_id]
+        run_with_rescue do
+            group_id = @redis.get(player_id)
+            player_ids = []
+            @redis.lock(group_id) do
+                group = Group.load(group_id, @redis)
+                unless group.status == Group::GROUP_STATE_END || 
+                    group.status == Group::GROUP_STATE_OPEN
+                    raise 'cannot quit when game is started'
+                end
+                player = group.players[player_id]
+                group.remove_player(player)
+                @redis.del(player_id)
+                @redis.publish("pub.#{player_id}", {type: 'abandon'}.to_json)
+                group.save!(@redis)
+
+                if group.players.length == 0
+                    puts "group empty, delete group"
+                    @redis.del(group_id)
+                end
+            end
+            render_success({})
         end
     end
 

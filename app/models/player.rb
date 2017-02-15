@@ -14,6 +14,7 @@ class Player
 		:last_vote,
 		:last_quest_result,
 		:status,
+		:assassination_target
 
 	PLAYER_STATE_CREATED = 'created'
 	PLAYER_STATE_READY = 'ready'
@@ -33,6 +34,7 @@ class Player
 		self.last_vote = nil
 		self.player_sequence = nil
 		self.last_quest_result = nil
+		self.assassination_target = false
 	end
 
 	def render_self
@@ -44,6 +46,14 @@ class Player
 		self.photo =photo
 		self.status = PLAYER_STATE_READY
 		self.is_ready = true
+	end
+
+	def side
+		return Character::SIDE_MAP[character]
+	end
+
+	def is_evil?
+		return self.side == Character::SIDE_EVIL
 	end
 
 	def render
@@ -59,31 +69,23 @@ class Player
 			player_sequence: player_sequence,
 			last_vote: last_vote,
 			voted: !last_vote.nil?,
-			side: Character::SIDE_MAP[character]
+			side: side,
+			assassination_target: assassination_target
 		}
 	end
 
-	def character_view(viewing_character)
+	# type = normal, assassination, end
+	def character_view(viewing_character, type)
 		mapped_character = Character::VIEW_MAP[viewing_character][character] rescue nil
-		{
-			name: name,
-			photo: photo,
-			character: mapped_character,
-			is_ready: is_ready,
-			is_king: is_king,
-			is_knight: is_knight,
-			player_sequence: player_sequence,
-			last_vote: last_vote,
-			voted: !last_vote.nil?
-		}
-	end
-
-	def assassination_view(viewing_character)
-		mapped_character = Character::VIEW_MAP[viewing_character][character] rescue nil
-		if Character::SIDE_MAP[character] == Character::SIDE_EVIL
+		if type == :assassination
+			if Character::SIDE_MAP[character] == Character::SIDE_EVIL
+				mapped_character = character
+			end
+		elsif type == :end
 			mapped_character = character
 		end
-		{
+
+		return {
 			name: name,
 			photo: photo,
 			character: mapped_character,
@@ -91,8 +93,10 @@ class Player
 			is_king: is_king,
 			is_knight: is_knight,
 			player_sequence: player_sequence,
-			last_vote: last_vote,
-			voted: !last_vote.nil?
+			last_vote: (type == :vote ? last_vote : nil),
+			voted: !last_vote.nil?,
+			side: (type == :assassination ? side : nil),
+			assassination_target: assassination_target
 		}
 	end
 
@@ -113,6 +117,7 @@ class Player
 		player.last_vote = json["last_vote"]
 		player.player_sequence = json["player_sequence"]
 		player.last_quest_result = json["last_quest_result"]
+		player.assassination_target = json["assassination_target"]
 		player
 	end
 end

@@ -4,8 +4,11 @@ require 'json'
 describe GroupController do
     
     before(:each) do
-        @characters = ["merlin","percival","assassin","morgana","royal_servant","mordred","oberon","minion"]
-        @size = 8
+        @characters = [
+            "merlin","percival","royal_servant","royal_servant","royal_servant","royal_servant",
+            "assassin","morgana","mordred","oberon","minion","minion","minion","minion"
+        ]
+        @size = 14
     end
     
     describe 'create' do
@@ -337,8 +340,8 @@ describe GroupController do
             group = JSON.parse(response.body)
             next_king = group["group"]["players"].values.find{|p| p["is_king"]}
             
-            expect(group["group"]["quest_result"]["success"]).to eq knights.length
-            expect(group["group"]["quest_result"]["failed"]).to eq 0
+            expect(group["group"]["quests"][-1]["success"]).to eq knights.length
+            expect(group["group"]["quests"][-1]["failed"]).to eq 0
             
             # next round
             expect(next_king["player_sequence"]).to eq ((king["player_sequence"] + 1) % @size)
@@ -399,9 +402,17 @@ describe GroupController do
         get :show, {group_id: group["group"]["id"]}
         JSON.parse(response.body)
     end
+
+    def make_nominated_group
+        group = make_ready_group
+        king = group["group"]["players"].values.find{|player| player["is_king"]}
+        post :nominate, {player_id: king["id"], knights: ["1","3","5"]}
+        get :show, {group_id: group["group"]["id"]}
+        JSON.parse(response.body)
+    end
     
     def make_voting_group
-        group = make_ready_group
+        group = make_nominated_group
         king = group["group"]["players"].values.find{|player| player["is_king"]}
         post :start_vote, {player_id: king["id"], knights: ["1","3","5"]}
         get :show, {group_id: group["group"]["id"]}
