@@ -14,7 +14,9 @@ class Group
         :vote_count,
         :quests,
         :winner,
-        :win_by
+        :win_by,
+
+        :test
 
     GROUP_STATE_CREATED         = 'created'         # means still need character setting, not ready to jion
     GROUP_STATE_OPEN            = 'open'            # means open for joining
@@ -38,6 +40,8 @@ class Group
         self.quests = []
         self.winner = nil
         self.win_by = nil
+
+        self.test = false
     end
 
     # returns a  Player
@@ -99,12 +103,19 @@ class Group
     end
 
     def choose_king
+        if self.test
+            self.players.values[-1].is_king = true
+            return
+        end
         iKing = rand(self.player_count)
         king = self.players.values[iKing]
         king.is_king = true
     end
 
     def next_king
+        if self.test
+            return
+        end
         king = self.players.values.find{|p| p.is_king}
         if king.nil?
             raise 'no king found'

@@ -382,4 +382,26 @@ class GroupController < ApplicationController
             render_success({})
         end
     end
+
+    def test
+        group = Group.new
+        # lock on group ID
+        @redis.lock(group.id) do |lock|
+            group.size = 5
+            group.test = true
+            player = group.join_as_owner()
+            group.update_character_pool(player.id, [
+                Character::MERLIN, Character::PERCIVAL, Character::ROYAL_SERVANT,
+                Character::ASSASSIN, Character::MORGANA
+            ])
+            (1..3).each do |i|
+                p = group.join_as_player
+                group.assign_character(p)
+                player.ready("Player #{i}", '')
+            end
+            group.save!(@redis)
+            @redis.set(player.id, group.id)
+            render_success({id: group.id})
+        end
+    end
 end
