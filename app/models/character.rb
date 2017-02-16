@@ -117,7 +117,11 @@ class Character
         MORGANA => 'Morgana',
         MORDRED => 'Mordred',
         OBERON => 'Oberon',
-        MINION => 'Minion of Mordred'
+        MINION => 'Minion of Mordred',
+
+        EVIL => 'Evil',
+        UNKNOWN => 'Unknown',
+        MERLIN_OR_MORGANA => 'Merlin or Morgana?'
     }
 
     def self.candidate_pool
