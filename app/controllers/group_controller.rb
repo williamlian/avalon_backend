@@ -91,6 +91,10 @@ class GroupController < ApplicationController
                 end
                 group.assign_character(player)
                 player.ready(player_name, photo)
+                if group.test and player_name == 'test'
+                    group.owner = player.id
+                    player.is_admin = true
+                end
                 if group.is_all_ready?
                     group.status = Group::GROUP_STATE_STARTED
                     group.choose_king

@@ -416,6 +416,7 @@ class Group
         group.vote_count = json["vote_count"].to_i
         group.winner = json["winner"]
         group.win_by = json["win_by"]
+        group.test = json["test"]
         group
     end
 end
