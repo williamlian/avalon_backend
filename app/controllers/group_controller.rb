@@ -390,10 +390,14 @@ class GroupController < ApplicationController
             group.size = 5
             group.test = true
             player = group.join_as_owner()
+           
             group.update_character_pool(player.id, [
                 Character::MERLIN, Character::PERCIVAL, Character::ROYAL_SERVANT,
                 Character::ASSASSIN, Character::MORGANA
             ])
+            group.assign_character(player)
+            player.ready("Owner", '')
+            
             (1..3).each do |i|
                 p = group.join_as_player
                 group.assign_character(p)
