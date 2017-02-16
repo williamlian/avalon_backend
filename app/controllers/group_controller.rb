@@ -397,7 +397,7 @@ class GroupController < ApplicationController
             (1..3).each do |i|
                 p = group.join_as_player
                 group.assign_character(p)
-                player.ready("Player #{i}", '')
+                p.ready("Player #{i}", '')
             end
             group.save!(@redis)
             @redis.set(player.id, group.id)
