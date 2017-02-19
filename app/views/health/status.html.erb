@@ -1,0 +1,18 @@
+<table border="1">
+  <tr>
+    <th>ID</th>
+    <th>Size</th>
+    <th>State</th>
+    <th>Players</th>
+  </tr>
+  <% @groups.each do |group| %>
+  <tr>
+    <td><%= group.id %></td>
+    <td><%= group.size %></td>
+    <td><%= group.status %></td>
+    <td><%= 
+      group.players.values.map {|p| "#{p.name}: #{p.status}"}.join(' | ') 
+    %></td>
+  </tr>
+  <% end %>
+</table>

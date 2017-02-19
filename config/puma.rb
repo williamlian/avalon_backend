@@ -1,2 +1,2 @@
-threads 5,60
-workers 10
+threads 5,20
+workers 0

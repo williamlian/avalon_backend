@@ -6,10 +6,13 @@ class ApplicationController < ActionController::Base
     def run_with_rescue
         begin
             yield
+        rescue ScriptError => e
+            render_error('Something went wrong')
+            puts e.to_s
+            puts e.backtrace[0..10].join("\n")
         rescue => e
             render_error(e)
             puts e.to_s
-            puts e.backtrace.join("\n")
         end
     end
 

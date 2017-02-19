@@ -79,5 +79,6 @@ Rails.application.routes.draw do
         get '/admin/group/:group_id' => 'group#show'
         get '/admin/delete/:group_id' => 'group#delete'
         get 'admin/test' => 'group#test'
+        get '/health' => 'health#status'
     end  
 end

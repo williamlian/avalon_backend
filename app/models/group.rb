@@ -103,10 +103,6 @@ class Group
     end
 
     def choose_king
-        if self.test
-            self.players.values[-1].is_king = true
-            return
-        end
         iKing = rand(self.player_count)
         king = self.players.values[iKing]
         king.is_king = true

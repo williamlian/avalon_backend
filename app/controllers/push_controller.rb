@@ -35,6 +35,7 @@ class PushController < ApplicationController
             puts "Error: #{e}"
             puts e.backtrace.join("\n")
         ensure
+            
             response.stream.close
         end
     end

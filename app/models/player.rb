@@ -65,6 +65,7 @@ class Player
 			character_name: Character::NAME_MAP[character],
 			is_ready: is_ready,
 			is_king: is_king,
+			is_admin: is_admin,
 			status: status,
 			is_knight: is_knight,
 			player_sequence: player_sequence,

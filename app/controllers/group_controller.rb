@@ -91,13 +91,17 @@ class GroupController < ApplicationController
                 end
                 group.assign_character(player)
                 player.ready(player_name, photo)
-                if group.test and player_name == 'test'
-                    group.owner = player.id
-                    player.is_admin = true
-                end
                 if group.is_all_ready?
                     group.status = Group::GROUP_STATE_STARTED
                     group.choose_king
+                end
+
+                # TEST - all mock player ready
+                if group.test and player_name == 'test'
+                    group.owner = player.id
+                    player.is_admin = true
+                    group.players.values.each {|p| p.is_king = false}
+                    player.is_king = true
                 end
                 group.save!(@redis)
                 render_success({group: group.player_view(player), player: player.render_self})
@@ -168,6 +172,16 @@ class GroupController < ApplicationController
                     raise 'only king can start voting'
                 end
                 group.start_vote
+
+                # TEST - all mock player vote
+                if group.test
+                    group.players.values.each do |p| 
+                        unless p.id == player_id
+                            p.last_vote = (rand < 0.5)
+                        end
+                    end
+                end
+
                 group.save!(@redis)
                 render_success({})
             end
@@ -213,6 +227,18 @@ class GroupController < ApplicationController
                     raise 'vote is not accepted'
                 end
                 group.start_quest
+
+                # TEST - all player except for tester submit
+                group.players.values.each do |p|
+                    if p.is_knight
+                        if p.id != player_id
+                            p.last_quest_result = p.is_evil? ? (rand < 0.5) : true
+                            p.status = Player::PLAYER_STATE_READY
+                            group.check_quest
+                        end
+                    end
+                end
+
                 group.save!(@redis)
                 render_success({})
             end
